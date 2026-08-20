@@ -36,7 +36,7 @@ docker run --rm --entrypoint ffmpeg ghcr.io/sectoroverload2k/streaming-silence-d
 ```
 
 Digital silence reports around `mean_volume: -91 dB`; the `-50dB` default sits
-well clear of normal programme level.
+well clear of normal program level.
 
 ## Environment
 
@@ -164,7 +164,7 @@ IMAGE=silence-detect:local ci/smoke/run.sh
 ## License
 
 [Elastic License 2.0](LICENSE). Free to use, modify and redistribute, including
-inside a commercial organisation and for monitoring commercial streams. You may
+inside a commercial organization and for monitoring commercial streams. You may
 not provide it to third parties as a hosted or managed service.
 
 The published image also bundles ffmpeg (GPL-2.0-or-later AND
