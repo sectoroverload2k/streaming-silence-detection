@@ -1,0 +1,17 @@
+# One service per monitored stream.
+services:
+  station-abc123:
+    image: ghcr.io/sectoroverload2k/streaming-silence-detection:main
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      STREAM_URL: https://icecast.example.com/station-abc123
+      WEBHOOK_URL: https://webhook.example.com/silence
+      SILENCE_DURATION: "5"
+      SILENCE_THRESHOLD: -50dB
+      WEBHOOK_EXTRA_STATION_SERIAL: ABC123STATION
+      WEBHOOK_EXTRA_SITE: eu-west-1
+      # htpasswd-protected mount
+      STREAM_USERNAME: ${STREAM_USERNAME:-}
+      STREAM_PASSWORD: ${STREAM_PASSWORD:-}
