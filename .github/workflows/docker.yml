@@ -44,7 +44,7 @@ jobs:
           BASE="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}"
           echo "base=${BASE,,}" >> "$GITHUB_OUTPUT"
           echo "sha_tag=${BASE,,}:sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
-          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
+          if [ "true" = "true" ]; then   # TEMP: force the fork path for verification
             echo "push=false" >> "$GITHUB_OUTPUT"
             echo "::notice::fork pull request - building and testing without pushing to GHCR"
           else
