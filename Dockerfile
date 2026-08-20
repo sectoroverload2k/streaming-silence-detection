@@ -3,11 +3,20 @@
 # nothing here is compiled.
 FROM alpine:3.22
 
+LABEL org.opencontainers.image.title="streaming-silence-detection" \
+      org.opencontainers.image.description="Icecast stream silence detection with webhook alerts" \
+      org.opencontainers.image.licenses="Elastic-2.0" \
+      org.opencontainers.image.source="https://github.com/sectoroverload2k/streaming-silence-detection"
+
 RUN apk add --no-cache ffmpeg python3 \
     && adduser -D -u 10001 silence
 
 COPY silence_monitor.py /usr/local/bin/silence-monitor
 COPY healthcheck.sh /usr/local/bin/healthcheck
+
+# ELv2 requires that anyone who receives a copy also receives the terms, and
+# NOTICE records the licences of the ffmpeg/python/alpine bits bundled here.
+COPY LICENSE NOTICE /usr/local/share/streaming-silence-detection/
 
 RUN chmod +x /usr/local/bin/silence-monitor /usr/local/bin/healthcheck
 

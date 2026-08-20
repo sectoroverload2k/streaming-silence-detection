@@ -160,3 +160,13 @@ Run the smoke test against a local build:
 docker build -t silence-detect:local .
 IMAGE=silence-detect:local ci/smoke/run.sh
 ```
+
+## License
+
+[Elastic License 2.0](LICENSE). Free to use, modify and redistribute, including
+inside a commercial organisation and for monitoring commercial streams. You may
+not provide it to third parties as a hosted or managed service.
+
+The published image also bundles ffmpeg (GPL-2.0-or-later AND
+LGPL-2.1-or-later), Python (PSF-2.0) and the Alpine base system, each under its
+own terms — see [NOTICE](NOTICE). Commercial terms: anthony@linsday.net.
