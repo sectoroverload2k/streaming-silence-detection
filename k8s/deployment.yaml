@@ -1,0 +1,95 @@
+# One Deployment per monitored stream. The detector holds a single ffmpeg
+# connection and is not shardable, so replicas stays at 1 - a second replica
+# would double every webhook.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: silence-detect-station-abc123
+  labels:
+    app.kubernetes.io/name: streaming-silence-detection
+    stream: station-abc123
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: streaming-silence-detection
+      stream: station-abc123
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: streaming-silence-detection
+        stream: station-abc123
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: detector
+          image: ghcr.io/sectoroverload2k/streaming-silence-detection:main
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: STREAM_URL
+              value: https://icecast.example.com/station-abc123
+            - name: WEBHOOK_URL
+              value: https://webhook.example.com/silence
+            - name: SILENCE_DURATION
+              value: "5"
+            - name: SILENCE_THRESHOLD
+              value: -50dB
+            # Anything with this prefix is forwarded as a top-level webhook
+            # field with the prefix stripped: STATION_SERIAL=ABC123STATION.
+            - name: WEBHOOK_EXTRA_STATION_SERIAL
+              value: ABC123STATION
+            - name: WEBHOOK_EXTRA_SITE
+              value: eu-west-1
+            # htpasswd-protected mounts: HTTP basic auth, from a Secret.
+            - name: STREAM_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: silence-detect-station-abc123
+                  key: stream-username
+                  optional: true
+            - name: STREAM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: silence-detect-station-abc123
+                  key: stream-password
+                  optional: true
+            - name: WEBHOOK_HEADER_X_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: silence-detect-station-abc123
+                  key: webhook-api-key
+                  optional: true
+          resources:
+            requests:
+              cpu: 25m
+              memory: 48Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          # The heartbeat file only advances while ffmpeg is decoding audio, so
+          # this restarts the pod on a wedged connection that never returns EOF.
+          livenessProbe:
+            exec:
+              command: ["/usr/local/bin/healthcheck"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      terminationGracePeriodSeconds: 20

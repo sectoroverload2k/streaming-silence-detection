@@ -1,0 +1,33 @@
+streaming-silence-detection
+Copyright (c) 2026 Anthony Linsday
+
+Licensed under the Elastic License 2.0 (ELv2). See LICENSE for the full terms.
+
+
+SCOPE
+-----
+The Elastic License 2.0 covers the source code in this repository. It does not
+extend to the third-party software redistributed inside the published container
+image, which remains governed solely by its own terms.
+
+
+THIRD-PARTY COMPONENTS IN THE CONTAINER IMAGE
+---------------------------------------------
+The image built from this Dockerfile installs the following, unmodified, from
+the Alpine Linux package repositories:
+
+  ffmpeg     GPL-2.0-or-later AND LGPL-2.1-or-later
+             (Alpine builds it with --enable-gpl --enable-version3)
+  python3    PSF-2.0
+  alpine     base system and its dependencies, under their respective licenses
+
+silence_monitor.py invokes ffmpeg as a separate process and does not link
+against it. Corresponding source for the GPL-licensed components is available
+from the Alpine Linux package repositories.
+
+
+COMMERCIAL LICENSING
+--------------------
+For terms outside the Elastic License 2.0 limitations - in particular providing
+this software to third parties as a hosted or managed service - contact
+anthony@linsday.net.

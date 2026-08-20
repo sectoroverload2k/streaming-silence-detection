@@ -1,0 +1,166 @@
+name: Container image (multi-arch → GHCR)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: Architectures to build
+        required: false
+        default: linux/amd64,linux/arm64
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: streaming-silence-detection
+  PLATFORMS: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      sha_tag: ${{ steps.ref.outputs.sha_tag }}
+      push: ${{ steps.ref.outputs.push }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # A pull request from a fork gets a read-only GITHUB_TOKEN and no secrets,
+      # so it can neither log in to GHCR nor push. Those runs still build every
+      # architecture; they just verify the result locally instead of pushing it.
+      - name: Image reference
+        id: ref
+        run: |
+          BASE="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}"
+          echo "base=${BASE,,}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=${BASE,,}:sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
+            echo "push=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::fork pull request - building and testing without pushing to GHCR"
+          else
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: steps.ref.outputs.push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag list
+        id: meta
+        run: |
+          BASE="${{ steps.ref.outputs.base }}"
+          TAGS="${{ steps.ref.outputs.sha_tag }}"
+          case "${{ github.ref }}" in
+            refs/tags/v*)   TAGS="$TAGS,$BASE:${GITHUB_REF#refs/tags/v},$BASE:latest" ;;
+            refs/heads/main) TAGS="$TAGS,$BASE:main" ;;
+          esac
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            TAGS="$TAGS,$BASE:pr-${{ github.event.number }}"
+          fi
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+          echo "$TAGS" | tr ',' '\n' | sed 's/^/  /'
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ env.PLATFORMS }}
+          push: ${{ steps.ref.outputs.push }}
+          tags: ${{ steps.meta.outputs.tags }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A manifest that is missing an architecture is exactly the failure this
+      # is here to catch: the arm64 nodes would fall back to no image at all.
+      - name: Manifest contains every requested architecture
+        if: steps.ref.outputs.push == 'true'
+        run: |
+          docker buildx imagetools inspect --raw "${{ steps.ref.outputs.sha_tag }}" \
+            | jq -r '.manifests[]
+                     | select(.platform.os != null and .platform.os != "unknown")
+                     | "\(.platform.os)/\(.platform.architecture)"' \
+            | sort -u > arches.txt
+          sed 's/^/   /' arches.txt
+          rc=0
+          for want in $(echo "${{ env.PLATFORMS }}" | tr ',' ' '); do
+            grep -qx "$want" arches.txt || { echo "::error::missing $want"; rc=1; }
+          done
+          exit $rc
+
+      # A fork PR cannot pull a sha tag it was never allowed to push, so it
+      # loads the native arch into the local daemon - warm from the cache the
+      # build above just populated - and runs the same end-to-end test.
+      - name: Load amd64 image into the local daemon
+        if: steps.ref.outputs.push == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: silence-detect:pr
+          provenance: false
+          cache-from: type=gha
+
+      - name: Detect silence end to end
+        if: steps.ref.outputs.push == 'false'
+        run: |
+          chmod +x ci/smoke/run.sh
+          IMAGE=silence-detect:pr ci/smoke/run.sh
+
+  # Only runs when the build was pushed; fork PRs test inside the build job.
+  smoke-test:
+    name: smoke test ${{ matrix.platform }}
+    needs: build
+    if: needs.build.outputs.push == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # End-to-end against a locally generated silent stream: the detector must
+      # actually POST silence_start to a stub webhook from inside the image.
+      - name: Detect silence end to end
+        run: |
+          chmod +x ci/smoke/run.sh
+          IMAGE="${{ needs.build.outputs.sha_tag }}" \
+          PLATFORM="${{ matrix.platform }}" \
+          ci/smoke/run.sh
