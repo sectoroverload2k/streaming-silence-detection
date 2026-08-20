@@ -27,5 +27,5 @@ jobs:
         with:
           path-to-signatures: signatures/version1/cla.json
           path-to-document: https://github.com/sectoroverload2k/streaming-silence-detection/blob/main/CLA.md
-          branch: main
+          branch: cla-signatures
           allowlist: dependabot[bot],bot*
