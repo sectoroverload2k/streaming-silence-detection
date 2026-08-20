@@ -103,7 +103,7 @@ def now_iso() -> str:
 
 
 class Webhook:
-    """Serialises webhook POSTs onto a worker thread.
+    """Serializes webhook POSTs onto a worker thread.
 
     Delivery must never block the ffmpeg stderr reader: a webhook endpoint that
     hangs for its full timeout would otherwise delay detection of the next

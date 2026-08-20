@@ -27,7 +27,7 @@ have been sent.
   the attack surface honest. If something genuinely needs a dependency, open an
   issue first.
 - **Keep ffmpeg at arm's length.** It is invoked as a subprocess, never linked.
-  That boundary is what keeps its GPL licence off this codebase.
+  That boundary is what keeps its GPL license off this codebase.
 - **Never log or send credentials.** `Monitor.scrub()` strips the stream URL and
   password out of every ffmpeg line before it is logged or put in a webhook
   payload. If you add a new path that surfaces ffmpeg output, scrub it.
@@ -47,19 +47,19 @@ line in the repository — so contributions need an explicit grant.
    have their permission to contribute.
 
 2. You grant Anthony Linsday a perpetual, worldwide, non-exclusive, royalty-free
-   and irrevocable licence to use, reproduce, modify, prepare derivative works
+   and irrevocable license to use, reproduce, modify, prepare derivative works
    of, publicly display, sublicense and distribute your contribution — **and to
    license it under terms other than the Elastic License 2.0, including
    commercial terms.**
 
 3. You grant, under any patent claims you can license, a perpetual, worldwide,
-   non-exclusive, royalty-free and irrevocable patent licence to make, use,
+   non-exclusive, royalty-free and irrevocable patent license to make, use,
    sell, offer to sell, import and otherwise transfer your contribution, alone
    or combined with this project.
 
 4. Your contribution is provided as is, without warranty of any kind.
 
-**You keep your copyright.** This is a licence, not an assignment — you remain
+**You keep your copyright.** This is a license, not an assignment — you remain
 free to use your own contribution however you like, anywhere else.
 
 A signed CLA, checked automatically on each pull request, will replace this

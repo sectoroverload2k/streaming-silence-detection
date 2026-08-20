@@ -15,7 +15,7 @@ COPY silence_monitor.py /usr/local/bin/silence-monitor
 COPY healthcheck.sh /usr/local/bin/healthcheck
 
 # ELv2 requires that anyone who receives a copy also receives the terms, and
-# NOTICE records the licences of the ffmpeg/python/alpine bits bundled here.
+# NOTICE records the licenses of the ffmpeg/python/alpine bits bundled here.
 COPY LICENSE NOTICE /usr/local/share/streaming-silence-detection/
 
 RUN chmod +x /usr/local/bin/silence-monitor /usr/local/bin/healthcheck
