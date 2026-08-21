@@ -142,6 +142,62 @@ kubectl apply -f k8s/deployment.yaml     # copy per stream, edit env
 `k8s/secret.example.yaml` shows the Secret shape for stream credentials and the
 webhook API key. `docker-compose.yml` covers the same thing outside Kubernetes.
 
+## Manual test scenarios
+
+`test/run.sh` is the hands-on counterpart to the CI smoke test: instead of
+asserting and exiting, each scenario starts the containers and streams their
+logs to your terminal until `DURATION` elapses (default 60s, `DURATION=0` runs
+until Ctrl-C). Everything is torn down on exit unless you set `KEEP=1`.
+
+```
+test/make-test-stream.sh       # generate a local test stream + serve it
+test/run.sh log        [URL]   # detector -> stdout only, no webhook
+test/run.sh webhook    [URL]   # detector -> local webhook sink
+test/run.sh silence            # synthesized tone/silence/tone source
+test/run.sh retry              # sink replies HTTP 500, watch the retry/backoff
+test/run.sh down               # unreachable stream, watch reconnect backoff
+```
+
+`test/webhook_sink.py` is the receiver: it accepts any POST, pretty-prints the
+headers and JSON body to stdout, and appends one JSON line per delivery to a
+log file. Scenarios run it inside the image, so no host Python is needed, but it
+works standalone too:
+
+```
+python3 test/webhook_sink.py 9000 /tmp/hook.log
+HOOK_STATUS=500 python3 test/webhook_sink.py 9000   # force delivery failures
+```
+
+With no URL argument the scenarios default to
+`http://localhost:8123/my-test-stream.mp3` - the stream
+`test/make-test-stream.sh` produces. It builds a tone → silence → tone mp3 with
+the image's own ffmpeg and serves it from a container with the port published,
+so nothing is installed on the host and no real station is involved:
+
+```
+test/make-test-stream.sh                    # generate + serve on :8123
+PORT=9123 test/make-test-stream.sh          # ...on another port
+TONE=2 SILENCE=20 test/make-test-stream.sh  # shape the silence window
+test/make-test-stream.sh file out.mp3       # just write the file
+test/make-test-stream.sh stop               # stop the server
+```
+
+`PORT` and `NAME` are read by both scripts, so setting them once keeps
+`test/run.sh`'s default URL pointed at the right place.
+
+A URL pointed at `localhost` / `127.0.0.1` is rewritten to `host.docker.internal`
+and the container gets a host-gateway mapping, so a stream you serve from your
+own machine is reachable from inside the detector instead of resolving to the
+container itself.
+
+`log` and `webhook` take a stream URL argument (or `STREAM_URL`) and honour
+`STREAM_USERNAME` / `STREAM_PASSWORD`, `SILENCE_DURATION` and
+`SILENCE_THRESHOLD`. Real streams rarely go quiet on cue, so point them at the
+generated stream - or use the self-contained `silence` scenario, which builds
+and serves its own copy. Either way ffmpeg reads the file as fast as the network
+allows, so events fire immediately and then repeat as the detector reconnects at
+EOF.
+
 ## CI
 
 `.github/workflows/docker.yml` builds `linux/amd64` + `linux/arm64` with buildx
